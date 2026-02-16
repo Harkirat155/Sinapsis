@@ -110,7 +110,7 @@ docker-compose up -d
 
 ## ☁️ AWS Free-Tier Backend Deployment (CI/CD on Push)
 
-SYNAPSE now includes a GitHub Actions pipeline that deploys backend services to a **single AWS EC2 free-tier instance** whenever code is pushed to `main`.
+SYNAPSE now includes a GitHub Actions pipeline that deploys backend services to a **single AWS EC2 free-tier instance** whenever code is pushed to `main`, using **AWS Systems Manager (SSM)** (no inbound SSH required for CI).
 
 ### What gets deployed
 - `synapse-core` → port `8000`
@@ -124,19 +124,21 @@ Deployment orchestration uses `docker-compose.aws.yml`.
 1. Launch an Ubuntu EC2 instance in free tier (`t2.micro`/`t3.micro`).
 2. Install Docker + Docker Compose plugin on the instance.
 3. Open inbound ports `22`, `8000-8003` in the EC2 security group.
-4. Add your SSH public key to the EC2 user.
+4. Attach an IAM role to EC2 with `AmazonSSMManagedInstanceCore`.
+5. Ensure SSM Agent is running on EC2 (`sudo systemctl status amazon-ssm-agent`).
 
 ### Required GitHub repository secrets
-- `AWS_EC2_HOST` (public IP or DNS)
-- `AWS_EC2_USER` (for example: `ubuntu`)
-- `AWS_EC2_SSH_KEY` (private key contents)
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION` (for example: `ap-south-1`)
+- `AWS_EC2_INSTANCE_ID` (for example: `i-0123456789abcdef0`)
 - `AWS_EC2_DEPLOY_PATH` (optional, defaults to `~/sinapsis`)
 
 ### CI/CD behavior
 - Trigger: Push to `main` affecting backend paths.
 - Steps:
   1. Build/validate backend code in GitHub Actions.
-  2. SSH into EC2.
+  2. Trigger remote shell commands on EC2 via AWS SSM.
   3. Pull latest `main`.
   4. Rebuild/restart containers with `docker compose -f docker-compose.aws.yml up -d --build`.
 
