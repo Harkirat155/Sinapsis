@@ -15,10 +15,15 @@
  */
 
 import express from 'express';
+import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
 app.use(express.json());
+app.use(cors({
+  origin: process.env.CORS_ALLOW_ORIGINS?.split(',').map(s => s.trim()) || '*',
+  credentials: true
+}));
 
 // Solution template
 interface Solution {

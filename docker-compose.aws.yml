@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  synapse-core:
+    build:
+      context: ./synapse-core
+    container_name: synapse-core
+    restart: unless-stopped
+    environment:
+      - PORT=8000
+      - CORS_ALLOW_ORIGINS=https://sinapsis-synapse-bridge.vercel.app
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/app/chroma_data
+
+  synapse-intent:
+    build:
+      context: ./synapse-intent
+    container_name: synapse-intent
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=8001
+      - CORS_ALLOW_ORIGINS=https://sinapsis-synapse-bridge.vercel.app
+    ports:
+      - "8001:8001"
+
+  synapse-rapid:
+    build:
+      context: ./synapse-rapid
+    container_name: synapse-rapid
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=8002
+      - CORS_ALLOW_ORIGINS=https://sinapsis-synapse-bridge.vercel.app
+    ports:
+      - "8002:8002"
+
+  synapse-feedback:
+    build:
+      context: ./synapse-feedback
+    container_name: synapse-feedback
+    restart: unless-stopped
+    environment:
+      - PORT=8003
+      - CORS_ALLOW_ORIGINS=https://sinapsis-synapse-bridge.vercel.app
+    ports:
+      - "8003:8003"
+
+volumes:
+  chroma-data:

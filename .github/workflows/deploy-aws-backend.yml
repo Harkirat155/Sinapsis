@@ -1,0 +1,82 @@
+name: Deploy Backends to AWS EC2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "synapse-core/**"
+      - "synapse-intent/**"
+      - "synapse-rapid/**"
+      - "synapse-feedback/**"
+      - "docker-compose.aws.yml"
+      - ".github/workflows/deploy-aws-backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: aws-backend-main
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build Intent service
+        run: |
+          cd synapse-intent
+          npm ci
+          npm run build
+
+      - name: Build Rapid service
+        run: |
+          cd synapse-rapid
+          npm ci
+          npm run build
+
+      - name: Validate Python backends syntax
+        run: |
+          python -m py_compile synapse-core/api.py synapse-feedback/api.py synapse-feedback/learning_engine.py
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Deploy to AWS EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_EC2_HOST }}
+          username: ${{ secrets.AWS_EC2_USER }}
+          key: ${{ secrets.AWS_EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            DEPLOY_PATH="${{ secrets.AWS_EC2_DEPLOY_PATH }}"
+            if [ -z "$DEPLOY_PATH" ]; then
+              DEPLOY_PATH="$HOME/sinapsis"
+            fi
+
+            if [ ! -d "$DEPLOY_PATH/.git" ]; then
+              git clone https://github.com/Harkirat155/Sinapsis.git "$DEPLOY_PATH"
+            fi
+
+            cd "$DEPLOY_PATH"
+            git fetch origin main
+            git reset --hard origin/main
+
+            docker compose -f docker-compose.aws.yml up -d --build --remove-orphans
+            docker image prune -f
+
+            docker compose -f docker-compose.aws.yml ps

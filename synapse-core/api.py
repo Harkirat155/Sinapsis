@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+import os
 
 from models import Interaction, UserPreference, MemoryEntry
 from memory_layer import MemoryLayer
@@ -19,10 +20,14 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# CORS configuration (comma-separated list or "*")
+cors_origins_raw = os.getenv("CORS_ALLOW_ORIGINS", "*")
+allow_origins = ["*"] if cors_origins_raw == "*" else [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+
 # Enable CORS for web interface
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -169,4 +174,5 @@ async def get_context(request: ContextRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

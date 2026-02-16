@@ -108,6 +108,40 @@ docker-compose up -d
 # - Web Interface: http://localhost:3000
 ```
 
+## ☁️ AWS Free-Tier Backend Deployment (CI/CD on Push)
+
+SYNAPSE now includes a GitHub Actions pipeline that deploys backend services to a **single AWS EC2 free-tier instance** whenever code is pushed to `main`.
+
+### What gets deployed
+- `synapse-core` → port `8000`
+- `synapse-intent` → port `8001`
+- `synapse-rapid` → port `8002`
+- `synapse-feedback` → port `8003`
+
+Deployment orchestration uses `docker-compose.aws.yml`.
+
+### One-time EC2 setup
+1. Launch an Ubuntu EC2 instance in free tier (`t2.micro`/`t3.micro`).
+2. Install Docker + Docker Compose plugin on the instance.
+3. Open inbound ports `22`, `8000-8003` in the EC2 security group.
+4. Add your SSH public key to the EC2 user.
+
+### Required GitHub repository secrets
+- `AWS_EC2_HOST` (public IP or DNS)
+- `AWS_EC2_USER` (for example: `ubuntu`)
+- `AWS_EC2_SSH_KEY` (private key contents)
+- `AWS_EC2_DEPLOY_PATH` (optional, defaults to `~/sinapsis`)
+
+### CI/CD behavior
+- Trigger: Push to `main` affecting backend paths.
+- Steps:
+  1. Build/validate backend code in GitHub Actions.
+  2. SSH into EC2.
+  3. Pull latest `main`.
+  4. Rebuild/restart containers with `docker compose -f docker-compose.aws.yml up -d --build`.
+
+This gives seamless backend deploys on every push while staying within AWS free-tier constraints.
+
 ## 📊 Performance Metrics
 
 - **Success Rate:** 70%+ (vs 30% traditional)

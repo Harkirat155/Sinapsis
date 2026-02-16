@@ -6,11 +6,14 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy application code
 COPY . .
 
+# Build TypeScript for production
+RUN npm run build
+
 EXPOSE 8001
 
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]
