@@ -92,14 +92,14 @@ jobs:
               \"export DEBIAN_FRONTEND=noninteractive\",
               \"if ! command -v git >/dev/null 2>&1; then apt-get update && apt-get install -y git; fi\",
               \"if ! command -v docker >/dev/null 2>&1; then apt-get update && apt-get install -y docker.io; systemctl enable docker; systemctl start docker; fi\",
-              \"if ! docker compose version >/dev/null 2>&1; then apt-get update && apt-get install -y docker-compose-plugin; fi\",
+              \"if ! command -v docker-compose >/dev/null 2>&1; then apt-get update && apt-get install -y docker-compose; fi\",
               \"if [ ! -d \\\"\\$DEPLOY_PATH/.git\\\" ]; then git clone '$REPO_URL' \\\"\\$DEPLOY_PATH\\\"; fi\",
               \"cd \\\"\\$DEPLOY_PATH\\\"\",
               \"git fetch origin main\",
               \"git reset --hard origin/main\",
-              \"docker compose -f docker-compose.aws.yml up -d --build --remove-orphans\",
+              \"docker-compose -f docker-compose.aws.yml up -d --build --remove-orphans\",
               \"docker image prune -f\",
-              \"docker compose -f docker-compose.aws.yml ps\"
+              \"docker-compose -f docker-compose.aws.yml ps\"
             ]" \
             --query "Command.CommandId" \
             --output text)
