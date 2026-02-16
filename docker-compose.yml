@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # Memory Layer - Python + ChromaDB
+  synapse-core:
+    build: ./synapse-core
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./synapse-core:/app
+      - chroma-data:/app/chroma_data
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python api.py
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Intent Analyzer - TypeScript/Node
+  synapse-intent:
+    build: ./synapse-intent
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./synapse-intent:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=8001
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Rapid Prototyping Engine - Node + Docker
+  synapse-rapid:
+    build: ./synapse-rapid
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./synapse-rapid:/app
+      - /app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock  # Access to Docker daemon
+    environment:
+      - NODE_ENV=development
+      - PORT=8002
+    command: npm run dev
+    privileged: true  # Needed for Docker-in-Docker
+
+  # Feedback Loop - Python Analytics
+  synapse-feedback:
+    build: ./synapse-feedback
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./synapse-feedback:/app
+      - feedback-data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python api.py
+    depends_on:
+      - synapse-core
+
+  # Human Bridge - React Frontend
+  synapse-bridge:
+    build: ./synapse-bridge
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./synapse-bridge:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+    depends_on:
+      - synapse-core
+      - synapse-intent
+
+volumes:
+  chroma-data:
+  feedback-data:
+
+networks:
+  default:
+    name: synapse-network

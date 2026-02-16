@@ -1,0 +1,26 @@
+{
+  "name": "synapse-ecosystem",
+  "version": "0.1.0",
+  "description": "Self-Learning AI Ecosystem for understanding humans better",
+  "private": true,
+  "workspaces": [
+    "synapse-intent",
+    "synapse-rapid",
+    "synapse-bridge",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "install:all": "npm install && pip install -r synapse-core/requirements.txt && pip install -r synapse-feedback/requirements.txt"
+  },
+  "keywords": ["ai", "machine-learning", "intent-analysis", "memory", "feedback-loop"],
+  "author": "SYNAPSE Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
