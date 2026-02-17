@@ -89,49 +89,96 @@ function App() {
   const handleAnalyze = async () => {
     if (!userInput.trim()) return
     
+    const userId = 'web_demo_user'
+    const solutions = [
+      {
+        id: crypto.randomUUID(),
+        approach: 'JavaScript built-in optimization',
+        language: 'javascript',
+        code: 'const nums=[9,2,7,1,5]; const sorted=[...nums].sort((a,b)=>a-b); console.log(sorted.join(\",\"));'
+      },
+      {
+        id: crypto.randomUUID(),
+        approach: 'JavaScript manual loop strategy',
+        language: 'javascript',
+        code: 'const nums=[9,2,7,1,5]; for(let i=0;i<nums.length;i++){for(let j=0;j<nums.length-i-1;j++){if(nums[j]>nums[j+1]){const t=nums[j];nums[j]=nums[j+1];nums[j+1]=t;}}} console.log(nums.join(\",\"));'
+      },
+      {
+        id: crypto.randomUUID(),
+        approach: 'JavaScript immutable map approach',
+        language: 'javascript',
+        code: 'const nums=[9,2,7,1,5]; const out=nums.map(v=>v).sort((a,b)=>a-b); console.log(out.join(\",\"));'
+      }
+    ]
+
     setIsProcessing(true)
     setResult(null)
     setErrorMessage('')
     setShowCelebration(false)
 
     try {
-      const [intentResponse, memoryStats, rapidResponse, feedbackResponse] = await Promise.all([
+      const [intentResponse, rapidResponse] = await Promise.all([
         fetchJson(`${INTENT_API}/analyze`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: userInput })
         }),
-        fetchJson(`${CORE_API}/stats?user_id=web_demo_user`),
         fetchJson(`${RAPID_API}/test`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             problem: userInput,
-            solutions: [
-              {
-                approach: 'JavaScript built-in optimization',
-                language: 'javascript',
-                code: 'const nums=[9,2,7,1,5]; const sorted=[...nums].sort((a,b)=>a-b); console.log(sorted.join(\",\"));'
-              },
-              {
-                approach: 'JavaScript manual loop strategy',
-                language: 'javascript',
-                code: 'const nums=[9,2,7,1,5]; for(let i=0;i<nums.length;i++){for(let j=0;j<nums.length-i-1;j++){if(nums[j]>nums[j+1]){const t=nums[j];nums[j]=nums[j+1];nums[j+1]=t;}}} console.log(nums.join(\",\"));'
-              },
-              {
-                approach: 'JavaScript immutable map approach',
-                language: 'javascript',
-                code: 'const nums=[9,2,7,1,5]; const out=nums.map(v=>v).sort((a,b)=>a-b); console.log(out.join(\",\"));'
-              }
-            ]
+            solutions
           })
-        }),
-        fetchJson(`${FEEDBACK_API}/insights`)
+        })
       ])
 
       const analysis = intentResponse?.analysis || {}
       const rapidRanking = rapidResponse?.ranking || rapidResponse?.results || []
       const winnerId = rapidResponse?.winner?.solutionId
+
+      await Promise.all([
+        fetchJson(`${CORE_API}/interactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            interaction: {
+              user_id: userId,
+              user_message: userInput,
+              detected_intent: analysis.detectedIntent,
+              surface_request: analysis.surfaceRequest,
+              emotional_context: analysis.emotionalContext,
+              urgency_score: analysis.urgencyScore
+            }
+          })
+        }),
+        fetchJson(`${FEEDBACK_API}/tests`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            test_id: crypto.randomUUID(),
+            user_id: userId,
+            problem_type: analysis.surfaceRequest || analysis.detectedIntent || 'general',
+            user_emotion: analysis.emotionalContext || 'neutral',
+            urgency_level: typeof analysis.urgencyScore === 'number' ? analysis.urgencyScore : 0.5,
+            solutions_tested: solutions.map((solution) => ({
+              id: solution.id,
+              language: solution.language,
+              approach: solution.approach
+            })),
+            winner_id: winnerId || '',
+            winner_score: rapidResponse?.winner?.score || 0,
+            user_accepted: true,
+            actual_success: true
+          })
+        })
+      ])
+
+      const [memoryStats, feedbackResponse] = await Promise.all([
+        fetchJson(`${CORE_API}/stats?user_id=${userId}`),
+        fetchJson(`${FEEDBACK_API}/insights`)
+      ])
+
       const insightPayload = feedbackResponse?.insights || {}
       const confidenceValue = typeof analysis.confidence === 'number' ? analysis.confidence : 0.75
       const topIntent = analysis.detectedIntent ? analysis.detectedIntent.replace(/_/g, ' ') : 'general assistance'
