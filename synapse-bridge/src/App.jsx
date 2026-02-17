@@ -90,26 +90,54 @@ function App() {
     if (!userInput.trim()) return
     
     const userId = 'web_demo_user'
-    const solutions = [
-      {
-        id: crypto.randomUUID(),
-        approach: 'JavaScript built-in optimization',
-        language: 'javascript',
-        code: 'const nums=[9,2,7,1,5]; const sorted=[...nums].sort((a,b)=>a-b); console.log(sorted.join(\",\"));'
-      },
-      {
-        id: crypto.randomUUID(),
-        approach: 'JavaScript manual loop strategy',
-        language: 'javascript',
-        code: 'const nums=[9,2,7,1,5]; for(let i=0;i<nums.length;i++){for(let j=0;j<nums.length-i-1;j++){if(nums[j]>nums[j+1]){const t=nums[j];nums[j]=nums[j+1];nums[j+1]=t;}}} console.log(nums.join(\",\"));'
-      },
-      {
-        id: crypto.randomUUID(),
-        approach: 'JavaScript immutable map approach',
-        language: 'javascript',
-        code: 'const nums=[9,2,7,1,5]; const out=nums.map(v=>v).sort((a,b)=>a-b); console.log(out.join(\",\"));'
-      }
-    ]
+    const lowerInput = userInput.toLowerCase()
+    const seed = Array.from(userInput).reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+    const nums = Array.from({ length: 5 }, (_, i) => ((seed * (i + 3) * 17) % 97) + 1)
+
+    // Demo note: rapid service executes code; we generate different runnable snippets so results change per input.
+    const basePrompt = JSON.stringify(userInput.slice(0, 200))
+
+    const solutions = /sort|sorted|sorting|array|order/.test(lowerInput)
+      ? [
+          {
+            id: crypto.randomUUID(),
+            approach: 'Sort (built-in)',
+            language: 'javascript',
+            code: `const nums=${JSON.stringify(nums)}; console.log('input', nums.join(',')); console.log('sorted', [...nums].sort((a,b)=>a-b).join(','));`
+          },
+          {
+            id: crypto.randomUUID(),
+            approach: 'Sort (manual loop)',
+            language: 'javascript',
+            code: `const nums=${JSON.stringify(nums)}; for(let i=0;i<nums.length;i++){for(let j=0;j<nums.length-i-1;j++){if(nums[j]>nums[j+1]){const t=nums[j];nums[j]=nums[j+1];nums[j+1]=t;}}} console.log('sorted', nums.join(','));`
+          },
+          {
+            id: crypto.randomUUID(),
+            approach: 'Sort (immutable copy)',
+            language: 'javascript',
+            code: `const nums=${JSON.stringify(nums)}; const out=nums.map(v=>v).sort((a,b)=>a-b); console.log('sorted', out.join(','));`
+          }
+        ]
+      : [
+          {
+            id: crypto.randomUUID(),
+            approach: 'Summarize request',
+            language: 'javascript',
+            code: `const prompt=${basePrompt}; console.log(JSON.stringify({ step:'summary', prompt }));`
+          },
+          {
+            id: crypto.randomUUID(),
+            approach: 'Extract key terms',
+            language: 'javascript',
+            code: `const prompt=${basePrompt}; const terms=prompt.toLowerCase().split(/\\W+/).filter(Boolean).slice(0,12); console.log(JSON.stringify({ step:'terms', terms }));`
+          },
+          {
+            id: crypto.randomUUID(),
+            approach: 'Intent echo (demo)',
+            language: 'javascript',
+            code: `const prompt=${basePrompt}; const lower=prompt.toLowerCase(); const intent=lower.includes('login')||lower.includes('auth')?'authentication':lower.includes('sort')?'sorting':'general'; console.log(JSON.stringify({ step:'intent_echo', intent, prompt }));`
+          }
+        ]
 
     setIsProcessing(true)
     setResult(null)
@@ -207,6 +235,7 @@ function App() {
             score: typeof sol.score === 'number' ? sol.score : 0,
             time: `${sol.executionTime || 0}ms`,
             memory: 'n/a',
+            output: (sol.output || sol.error || '').trim().slice(0, 120),
             winner: winnerId ? sol.solutionId === winnerId : false
           }))
         },
@@ -686,6 +715,11 @@ function App() {
                             <div className="text-sm text-text-secondary mt-1">
                               {sol.time} • {sol.memory}
                             </div>
+                            {sol.output && (
+                              <div className="mt-2 text-xs font-mono text-text-secondary/90 break-words">
+                                {sol.output}
+                              </div>
+                            )}
                           </div>
                         </div>
                         
