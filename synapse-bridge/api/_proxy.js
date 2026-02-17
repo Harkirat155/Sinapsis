@@ -33,11 +33,26 @@ export async function proxyRequest(req, res, targetBase, pathParam) {
     }
   }
 
-  const upstream = await fetch(targetUrl, options)
-  const contentType = upstream.headers.get('content-type') || 'application/json'
-  const text = await upstream.text()
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
 
-  res.status(upstream.status)
-  res.setHeader('content-type', contentType)
-  return res.send(text)
+  try {
+    const upstream = await fetch(targetUrl, { ...options, signal: controller.signal })
+    const contentType = upstream.headers.get('content-type') || 'application/json'
+    const text = await upstream.text()
+
+    res.status(upstream.status)
+    res.setHeader('content-type', contentType)
+    return res.send(text)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown proxy error'
+    res.status(502)
+    return res.json({
+      error: 'Upstream request failed',
+      target: targetUrl,
+      details: message
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
 }
