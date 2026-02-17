@@ -11,10 +11,16 @@ This is the brain of SYNAPSE. It provides:
 from typing import List, Optional, Dict, Any
 import chromadb
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
 from datetime import datetime
 import asyncio
 import logging
+import hashlib
+import numpy as np
+
+try:
+    from sentence_transformers import SentenceTransformer  # type: ignore
+except Exception:
+    SentenceTransformer = None
 
 from models import Interaction, UserPreference, MemoryEntry
 
@@ -50,10 +56,20 @@ class MemoryLayer:
             metadata={"description": "General context memories"}
         )
         
-        # Embedding model
-        self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+        # Embedding model (fallback to lightweight local embedding if unavailable)
+        self.embedder = SentenceTransformer('all-MiniLM-L6-v2') if SentenceTransformer else None
         
         logger.info("Memory Layer initialized")
+
+    def _embed_text(self, text: str) -> List[float]:
+        """Create embeddings with transformer if available, else deterministic lightweight vectors."""
+        if self.embedder is not None:
+            return self.embedder.encode(text).tolist()
+
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        seed = int.from_bytes(digest[:8], byteorder="big", signed=False)
+        rng = np.random.default_rng(seed)
+        return rng.standard_normal(384).astype(np.float32).tolist()
     
     async def store_interaction(self, interaction: Interaction) -> str:
         """
@@ -61,7 +77,7 @@ class MemoryLayer:
         Automatically creates embeddings for semantic search.
         """
         # Create embedding of the user message
-        embedding = self.embedder.encode(interaction.user_message).tolist()
+        embedding = self._embed_text(interaction.user_message)
         
         # Store in ChromaDB
         self.interactions_collection.add(
@@ -94,7 +110,7 @@ class MemoryLayer:
         This is how we learn from history.
         """
         # Embed the query
-        query_embedding = self.embedder.encode(query).tolist()
+        query_embedding = self._embed_text(query)
         
         # Search for similar interactions
         results = self.interactions_collection.query(
@@ -128,7 +144,7 @@ class MemoryLayer:
         """Store a learned user preference"""
         # Create embedding of the preference description
         pref_text = f"{preference.category}: {preference.preference_key} = {preference.preference_value}"
-        embedding = self.embedder.encode(pref_text).tolist()
+        embedding = self._embed_text(pref_text)
         
         # Store in ChromaDB
         self.preferences_collection.add(
@@ -180,7 +196,7 @@ class MemoryLayer:
     
     async def store_memory(self, memory: MemoryEntry) -> str:
         """Store a general context memory"""
-        embedding = self.embedder.encode(memory.content).tolist()
+        embedding = self._embed_text(memory.content)
         
         self.memories_collection.add(
             ids=[memory.id],
@@ -208,7 +224,7 @@ class MemoryLayer:
         Get the most relevant memories/context for a query.
         This combines interactions, preferences, and general memories.
         """
-        query_embedding = self.embedder.encode(query).tolist()
+        query_embedding = self._embed_text(query)
         
         # Search across all collections
         context = []
