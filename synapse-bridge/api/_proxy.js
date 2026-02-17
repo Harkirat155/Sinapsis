@@ -1,17 +1,34 @@
-function getSearch(req) {
-  const idx = req.url.indexOf('?')
-  return idx >= 0 ? req.url.slice(idx) : ''
-}
-
 function normalizePath(pathParam) {
   if (!pathParam) return ''
   if (Array.isArray(pathParam)) return pathParam.join('/')
   return String(pathParam)
 }
 
-export async function proxyRequest(req, res, targetBase, pathParam) {
-  const path = normalizePath(pathParam)
-  const targetUrl = `${targetBase}${path ? `/${path}` : ''}${getSearch(req)}`
+function resolveTargetParts(req, pathParam, routeBase) {
+  const parsed = new URL(req.url, 'http://localhost')
+  let path = normalizePath(pathParam)
+
+  if (!path && routeBase && parsed.pathname.startsWith(`${routeBase}/`)) {
+    path = parsed.pathname.slice(routeBase.length + 1)
+  }
+  if (!path) {
+    path = parsed.searchParams.get('path') || ''
+  }
+  // Some runtimes (including Vercel functions) may pass req.url relative to the
+  // function mountpoint (e.g. "/stats" instead of "/api/core/stats").
+  if (!path) {
+    const raw = parsed.pathname.replace(/^\/+/, '')
+    path = raw
+  }
+
+  parsed.searchParams.delete('path')
+  const query = parsed.searchParams.toString()
+  return { path, search: query ? `?${query}` : '' }
+}
+
+export async function proxyRequest(req, res, targetBase, pathParam, routeBase) {
+  const { path, search } = resolveTargetParts(req, pathParam, routeBase)
+  const targetUrl = `${targetBase}${path ? `/${path}` : ''}${search}`
 
   const headers = { ...req.headers }
   delete headers.host
