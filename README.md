@@ -89,6 +89,17 @@ cd synapse-bridge && npm run dev
 # Open http://localhost:3000
 ```
 
+### Vercel Wiring (Live Backend APIs)
+
+Set these environment variables in Vercel Project Settings → Environment Variables:
+
+- `VITE_SYNAPSE_CORE_API_URL` = `http://13.233.255.95:8000`
+- `VITE_SYNAPSE_INTENT_API_URL` = `http://13.233.255.95:8001`
+- `VITE_SYNAPSE_RAPID_API_URL` = `http://13.233.255.95:8002`
+- `VITE_SYNAPSE_FEEDBACK_API_URL` = `http://13.233.255.95:8003`
+
+Then redeploy the Vercel project.
+
 ### Full System Setup
 
 ```bash

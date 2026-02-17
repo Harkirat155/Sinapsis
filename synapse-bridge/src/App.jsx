@@ -21,6 +21,19 @@ import {
   ChevronRight
 } from 'lucide-react'
 
+const CORE_API = import.meta.env.VITE_SYNAPSE_CORE_API_URL || 'http://13.233.255.95:8000'
+const INTENT_API = import.meta.env.VITE_SYNAPSE_INTENT_API_URL || 'http://13.233.255.95:8001'
+const RAPID_API = import.meta.env.VITE_SYNAPSE_RAPID_API_URL || 'http://13.233.255.95:8002'
+const FEEDBACK_API = import.meta.env.VITE_SYNAPSE_FEEDBACK_API_URL || 'http://13.233.255.95:8003'
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, options)
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
 /**
  * ✨ SYNAPSE - World-Class AI Development Interface
  * 
@@ -41,6 +54,7 @@ function App() {
   const [currentStep, setCurrentStep] = useState(0)
   const [result, setResult] = useState(null)
   const [showCelebration, setShowCelebration] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
   const [stats, setStats] = useState({
     totalQueries: 127,
     solutionsTested: 381,
@@ -77,48 +91,104 @@ function App() {
     
     setIsProcessing(true)
     setResult(null)
+    setErrorMessage('')
     setShowCelebration(false)
 
-    setTimeout(() => {
-      const mockResult = {
+    try {
+      const [intentResponse, memoryStats, rapidResponse, feedbackResponse] = await Promise.all([
+        fetchJson(`${INTENT_API}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userInput })
+        }),
+        fetchJson(`${CORE_API}/stats?user_id=web_demo_user`),
+        fetchJson(`${RAPID_API}/test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            problem: userInput,
+            solutions: [
+              {
+                approach: 'JavaScript built-in optimization',
+                language: 'javascript',
+                code: 'const nums=[9,2,7,1,5]; const sorted=[...nums].sort((a,b)=>a-b); console.log(sorted.join(\",\"));'
+              },
+              {
+                approach: 'JavaScript manual loop strategy',
+                language: 'javascript',
+                code: 'const nums=[9,2,7,1,5]; for(let i=0;i<nums.length;i++){for(let j=0;j<nums.length-i-1;j++){if(nums[j]>nums[j+1]){const t=nums[j];nums[j]=nums[j+1];nums[j+1]=t;}}} console.log(nums.join(\",\"));'
+              },
+              {
+                approach: 'JavaScript immutable map approach',
+                language: 'javascript',
+                code: 'const nums=[9,2,7,1,5]; const out=nums.map(v=>v).sort((a,b)=>a-b); console.log(out.join(\",\"));'
+              }
+            ]
+          })
+        }),
+        fetchJson(`${FEEDBACK_API}/insights`)
+      ])
+
+      const analysis = intentResponse?.analysis || {}
+      const rapidRanking = rapidResponse?.ranking || rapidResponse?.results || []
+      const winnerId = rapidResponse?.winner?.solutionId
+      const insightPayload = feedbackResponse?.insights || {}
+      const confidenceValue = typeof analysis.confidence === 'number' ? analysis.confidence : 0.75
+      const topIntent = analysis.detectedIntent ? analysis.detectedIntent.replace(/_/g, ' ') : 'general assistance'
+      const totalInteractions = memoryStats?.total_interactions || memoryStats?.interactions_count || 0
+
+      const liveResult = {
         intent: {
-          detected: userInput.includes('sort') ? 'sort_data' : userInput.includes('login') ? 'build_authentication' : 'optimize_performance',
-          emotion: userInput.includes('stuck') || userInput.includes('ASAP') ? 'urgent' : 'neutral',
-          urgency: userInput.includes('quickly') || userInput.includes('ASAP') ? 0.92 : 0.58,
-          hiddenGoals: ['deliver_value', 'solve_problem', 'learn_best_practice']
+          detected: analysis.detectedIntent || 'general_assistance',
+          emotion: analysis.emotionalContext || 'neutral',
+          urgency: typeof analysis.urgencyScore === 'number' ? analysis.urgencyScore : 0.5,
+          hiddenGoals: analysis.hiddenGoals?.length ? analysis.hiddenGoals : ['deliver_value', 'solve_problem']
         },
         memory: {
-          pastInteractions: 12,
-          learnedPreferences: ['Python preferred', 'Fast execution', 'Clean code', 'Well documented'],
-          relatedTopics: ['algorithms', 'data structures', 'optimization']
+          pastInteractions: totalInteractions,
+          learnedPreferences: [
+            `Top inferred intent: ${topIntent}`,
+            `Confidence tracking enabled (${(confidenceValue * 100).toFixed(0)}%)`,
+            'Context memory retrieval active'
+          ],
+          relatedTopics: (analysis.hiddenGoals || ['optimization', 'delivery', 'quality']).slice(0, 3)
         },
         rapidTesting: {
-          solutionsTested: 3,
-          results: [
-            { approach: 'Python sorted() with key', score: 96.4, time: '0.02ms', memory: '128KB', winner: true },
-            { approach: 'JavaScript Array.sort()', score: 94.0, time: '0.04ms', memory: '156KB', winner: false },
-            { approach: 'Custom QuickSort', score: 87.2, time: '0.08ms', memory: '192KB', winner: false }
-          ]
+          solutionsTested: rapidResponse?.tested || rapidRanking.length || 0,
+          results: rapidRanking.map((sol) => ({
+            approach: sol.approach || 'Unknown approach',
+            score: typeof sol.score === 'number' ? sol.score : 0,
+            time: `${sol.executionTime || 0}ms`,
+            memory: 'n/a',
+            winner: winnerId ? sol.solutionId === winnerId : false
+          }))
         },
         feedback: {
-          patternsLearned: 3,
-          confidence: 0.96,
-          improvements: ['Faster response time', 'Better accuracy', 'Memory optimization']
+          patternsLearned: insightPayload.patterns_discovered || 0,
+          confidence: confidenceValue,
+          improvements: [
+            rapidResponse?.insight || 'Parallel validation completed successfully',
+            `Learning velocity: ${insightPayload.learning_velocity || 'warming up'}`,
+            `Most successful language: ${insightPayload.most_successful_language || 'pending data'}`
+          ]
         }
       }
       
-      setResult(mockResult)
+      setResult(liveResult)
       setIsProcessing(false)
       setShowCelebration(true)
       setStats(prev => ({
         totalQueries: prev.totalQueries + 1,
-        solutionsTested: prev.solutionsTested + 3,
-        avgConfidence: 94.2,
+        solutionsTested: prev.solutionsTested + (rapidResponse?.tested || 0),
+        avgConfidence: Number((confidenceValue * 100).toFixed(1)),
         timesSaved: '42h'
       }))
 
       setTimeout(() => setShowCelebration(false), 3000)
-    }, 3500)
+    } catch (error) {
+      setIsProcessing(false)
+      setErrorMessage(`Live API call failed: ${error.message}`)
+    }
   }
 
   return (
@@ -266,6 +336,9 @@ function App() {
             <p className="text-xs text-text-secondary mt-3 text-center">
               Press <kbd className="px-2 py-1 glass rounded text-xs">⌘</kbd> + <kbd className="px-2 py-1 glass rounded text-xs">Enter</kbd> to submit
             </p>
+            {errorMessage && (
+              <p className="text-xs text-red-400 mt-3 text-center">{errorMessage}</p>
+            )}
           </div>
         </motion.div>
 
