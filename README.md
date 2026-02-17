@@ -91,12 +91,14 @@ cd synapse-bridge && npm run dev
 
 ### Vercel Wiring (Live Backend APIs)
 
+SYNAPSE UI now uses same-origin Vercel API proxy routes (`/api/core/*`, `/api/intent/*`, etc.) to avoid browser mixed-content/CORS blocking from HTTPS → HTTP calls.
+
 Set these environment variables in Vercel Project Settings → Environment Variables:
 
-- `VITE_SYNAPSE_CORE_API_URL` = `http://13.233.255.95:8000`
-- `VITE_SYNAPSE_INTENT_API_URL` = `http://13.233.255.95:8001`
-- `VITE_SYNAPSE_RAPID_API_URL` = `http://13.233.255.95:8002`
-- `VITE_SYNAPSE_FEEDBACK_API_URL` = `http://13.233.255.95:8003`
+- `SYNAPSE_CORE_API_URL` = `http://13.233.255.95:8000`
+- `SYNAPSE_INTENT_API_URL` = `http://13.233.255.95:8001`
+- `SYNAPSE_RAPID_API_URL` = `http://13.233.255.95:8002`
+- `SYNAPSE_FEEDBACK_API_URL` = `http://13.233.255.95:8003`
 
 Then redeploy the Vercel project.
 

@@ -21,10 +21,10 @@ import {
   ChevronRight
 } from 'lucide-react'
 
-const CORE_API = import.meta.env.VITE_SYNAPSE_CORE_API_URL || 'http://13.233.255.95:8000'
-const INTENT_API = import.meta.env.VITE_SYNAPSE_INTENT_API_URL || 'http://13.233.255.95:8001'
-const RAPID_API = import.meta.env.VITE_SYNAPSE_RAPID_API_URL || 'http://13.233.255.95:8002'
-const FEEDBACK_API = import.meta.env.VITE_SYNAPSE_FEEDBACK_API_URL || 'http://13.233.255.95:8003'
+const CORE_API = '/api/core'
+const INTENT_API = '/api/intent'
+const RAPID_API = '/api/rapid'
+const FEEDBACK_API = '/api/feedback'
 
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options)
